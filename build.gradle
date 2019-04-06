@@ -1,0 +1,23 @@
+apply plugin: 'groovy'
+
+version = '0.2.0'
+
+//Get dependencies from Maven central repository
+repositories {
+    mavenCentral()
+}
+
+//Project dependencies
+dependencies {
+    compile 'org.codehaus.groovy:groovy-all:2.4.14'
+	compile 'com.unboundid:unboundid-ldapsdk:4.0.9'
+    testCompile(
+        'org.spockframework:spock-core:1.1-groovy-2.4',
+        'com.unboundid:unboundid-ldapsdk:4.0.9'
+    )
+    testRuntime(
+        //'org.junit.jupiter:junit-jupiter-engine:5.4.0',
+        'org.junit.vintage:junit-vintage-engine:5.4.0',
+        'com.unboundid:unboundid-ldapsdk:4.0.9'
+    )
+}

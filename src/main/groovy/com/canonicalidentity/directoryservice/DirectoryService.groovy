@@ -697,7 +697,7 @@ class DirectoryService {
             return entries
         }
         catch (LDAPSearchException lse) {
-            log.warning "Exception while searching: ${lse.message}", lse
+            log.warning "Exception while searching: ${lse.message} - ${lse}"
             List<SearchResultEntry> entries = lse.getSearchEntries()
             return entries
         }

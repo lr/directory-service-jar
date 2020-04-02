@@ -317,10 +317,18 @@ class DirectoryServiceEntry implements Serializable {
     /**
      * Updates the {@code modifications} list by calling the UnboundID
      * Entry.diff() method against the {@code searchResultEntry} and the
-     * modified {@code entry} objects. It uses the "REPLACE" method for
-     * doing modifications instead of the "DELETE"/"ADD" method.
+     * modified {@code entry} objects.
+     * @param Boolean reversable    If <code>false</code> (which is the
+     * default), it uses the "REPLACE" method for doing modifications. If
+     * <code>true</code>, it does the "DELETE"/"ADD" method for doing
+     * modifications.
+     *
+     * Even though setting properties always calls this method with the
+     * default of <code>false</code>, this method can always be called with
+     * <code>true</code> as the argument. Even if the modification have already
+     * been set, they will get recalculated.
      */
-    def updateModifications() {
-        modifications = Entry.diff(searchResultEntry, entry, true, false)
+    def updateModifications(reversable=false) {
+        modifications = Entry.diff(searchResultEntry, entry, true, reversable)
     }
 }

@@ -318,17 +318,29 @@ class DirectoryServiceEntry implements Serializable {
      * Updates the {@code modifications} list by calling the UnboundID
      * Entry.diff() method against the {@code searchResultEntry} and the
      * modified {@code entry} objects.
-     * @param Boolean reversable    If <code>false</code> (which is the
-     * default), it uses the "REPLACE" method for doing modifications. If
-     * <code>true</code>, it does the "DELETE"/"ADD" method for doing
+     * @param Boolean reversable    If <code>false</code>, it uses the
+     * "REPLACE" method for doing modifications. If <code>true</code>
+     * (which is the default), it does the "DELETE"/"ADD" method for doing
      * modifications.
      *
+     * This method also sets {@code byteForByte} as <code>true</code> by
+     * default, so that case matters for stings. If you do not want it set
+     * as <code>true</code>, you will need to call the method with both the
+     * {@code reversable} argument as well as the {@code byteForByte} argument.
+     *
      * Even though setting properties always calls this method with the
-     * default of <code>false</code>, this method can always be called with
-     * <code>true</code> as the argument. Even if the modification have already
-     * been set, they will get recalculated.
+     * default of <code>true</code>, this method can always be called with
+     * <code>false</code> as the argument. Even if the modifications have
+     * already been set, they will get recalculated.
+     *
+     * @param reversable    Whether or not the diff should use DELETE/ADD
+     *                      instead of REPLACE. Default is <code>true</code>.
+     * @param byteForByte   Whether or not the diff should do a byte-for-byte
+     *                      comparison of the attribute changes. Default is
+     *                      <code>true</code>.
      */
-    def updateModifications(reversable=false) {
-        modifications = Entry.diff(searchResultEntry, entry, true, reversable)
+    public void updateModifications(reversable=true, byteForByte=true) {
+        modifications = Entry.diff((Entry)searchResultEntry, entry, true, reversable, true)
     }
+    
 }

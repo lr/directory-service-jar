@@ -149,4 +149,15 @@ class DirectoryServiceTests extends GroovyTestCase {
         assert billy.givenName == 'Billy'
     }
     
+    void testModifyPersonChangeAttributeValueCase() {
+        def john = directoryService.findPersonWhere(givenName: 'John', sn: 'Smith')
+        assert john != null
+        john.givenName = 'john'
+        directoryService.save(john)
+        
+        def johnAgain = directoryService.findPersonWhere(givenName: 'John', sn: 'Smith')
+        assert johnAgain != null
+        assert johnAgain.givenName == 'john'
+    }
+    
 }

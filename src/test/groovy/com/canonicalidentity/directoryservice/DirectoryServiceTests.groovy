@@ -19,11 +19,14 @@ class DirectoryServiceTests extends GroovyTestCase {
     def inMemServer
 
     /* The "AD" InMemoryServer instanceof */
-    def adInMemServer 
-    
+    def adInMemServer
+
+    /* The "AD" InMemoryServer instanceof */
+    def adInMemServerWithPool
+
     /* The DirectoryService instance */
     def directoryService = new DirectoryService(dsConfigFile)
-    
+
     /* Used for comparison. */
     def peopleBaseDN = 'ou=people,dc=someu,dc=edu'
 
@@ -47,11 +50,19 @@ class DirectoryServiceTests extends GroovyTestCase {
             "src/test/ldif/schema/ad-schema.ldif",
             "src/test/ldif/accounts.ldif"
         )
+
+        adInMemServerWithPool = new InMemoryDirectoryServer(
+            "dc=someu,dc=edu",
+            inMemServerConfig.directoryservice.sources.adWithPool,
+            "src/test/ldif/schema/ad-schema.ldif",
+            "src/test/ldif/accounts.ldif"
+        )
     }
 
     protected void tearDown() {
         inMemServer?.shutDown()
         adInMemServer?.shutDown()
+        adInMemServerWithPool?.shutDown()
     }
 
     /*
@@ -666,6 +677,26 @@ class DirectoryServiceTests extends GroovyTestCase {
         inMemServer.restoreSnapshot(snapshot)
         person = directoryService.getPerson('1')
         assertNotNull person
+    }
+
+    /**
+     * Test the connections() map
+     */
+    void testConnections() {
+        def people   = directoryService.findPeopleWhere(objectClass: 'person')
+        def accounts = directoryService.findAccountsWhere(objectClass: 'person')
+
+        assertEquals people.size(), 385
+        assertEquals accounts.size(), 351
+        // should be 1 because the default accounts does not use a connection pool
+        assertEquals directoryService.connections().keySet().size(), 1
+
+        def accountsFromPool = directoryService.findAccountsFromPoolWhere(objectClass: 'person')
+
+        // now we search using the AD with the connection pool, which would keep
+        // the connection open, so now we should have two conns returned
+        assertEquals accountsFromPool.size(), 351
+        assertEquals directoryService.connections().keySet().size(), 2
     }
 
 }

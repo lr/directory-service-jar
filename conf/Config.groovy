@@ -24,6 +24,18 @@ directoryservice.sources = [
         bindDN: 'cn=AD Manager',
         bindPassword: 'password'
     ],
+    adWithPool:[
+        address: 'localhost',
+        port: '33269',
+        useSSL: false,
+        trustSSLCert: true,
+        followReferrals: false,
+        useConnectionPool: true,
+        initialConnections: 5,
+        maxConnections: 50,
+        bindDN: 'cn=AD Manager',
+        bindPassword: 'password'
+    ],
     directoryAnonymousWithPool:[
         address: 'localhost',
         port: '33389',
@@ -67,6 +79,12 @@ directoryservice.dit = [
         plural: 'accounts',
         rdnAttribute: 'cn',
         source: 'ad'
+    ],
+    'ou=Accounts,dc=someu,dc=edu':[
+        singular: 'accountFromPool',
+        plural: 'accountsFromPool',
+        rdnAttribute: 'cn',
+        source: 'adWithPool'
     ],
     'ou=Economics,ou=accounts,dc=someu,dc=edu':[
         singular: 'economist',

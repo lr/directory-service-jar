@@ -21,6 +21,15 @@ directoryservice.sources = [
         bindPassword: 'password',
         followReferrals: false
     ],
+    adWithPool:[
+        address: 'localhost',
+        port: '33269',
+        useSSL: false,
+        trustSSLCert: true,
+        bindDN: 'cn=AD Manager',
+        bindPassword: 'password',
+        followReferrals: false
+    ],
     forListenTest:[
         address: 'localhost',
         port: '33390',

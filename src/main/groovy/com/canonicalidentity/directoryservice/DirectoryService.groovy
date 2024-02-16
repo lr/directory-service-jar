@@ -535,14 +535,8 @@ class DirectoryService {
                 else {
                     SimpleBindRequest bindRequest =
                         new SimpleBindRequest()
-                    //conn[sourceName] = serverSet?.getConnection() # To be removed (3/25/2014)
                     conn[sourceName] = new LDAPConnectionPool(serverSet, bindRequest,
                         source.initialConnections, source.maxConnections)
-                    // If there is a bindDN, then bind, otherwise, treat as
-                    // anonymous. # To be removed (3/25/2014)
-                    //if (source.bindDN) {
-                    //    conn[sourceName]?.bind(source.bindDN, source.bindPassword)
-                    //}
                 }
             }
             return conn[sourceName]
@@ -709,6 +703,16 @@ class DirectoryService {
                 conn?.close()
             }
         }
+    }
+
+    /**
+     * Accessor for the {@code conn} Map instance variable.
+     *
+     * @return the {@code conn} Map of any connections that have been set up
+     *    by the DirectoryService.
+     */
+    def connections() {
+        return conn
     }
 
     /**

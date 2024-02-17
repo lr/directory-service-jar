@@ -111,6 +111,83 @@ class DirectoryServiceEntry implements Serializable {
     }
 
     /**
+     * Constructs a new DirectoryServiceEntry object from the passed in Map
+     * of {@code attrs}, singular {@code ditItem} value (so that it knows how
+     * to find the dit config), and {@code directoryService} object so that it
+     * can get the config without having to create a new DirectoryService
+     * instance.
+     *
+     * The returned object can then be used just like any DirectoryServiceEntry
+     * object, modifying, it, etc., but the real purpose for it is to then add
+     * it to the server to which its baseDN belongs.
+     *
+     * The {@code attrs} must contain the RDN attribute for the {@code ditItem}.
+     * If this RDN value is a list, then the actual RDN of the DN will be the
+     * first item in the list.
+     *
+     * Either the {@code attrs} or the found dit map must contain an attribute
+     * called {@code objectClass} and must be a list of values. If there are
+     * {@code objectClass} values in both the dit map and the passed in
+     * {@code attrs}, the values from the latter will be used.
+     *
+     * @param attrs             Map of attributes and values.
+     * @param ditItem           String value of a {@code singular} item in the
+     *                          dit map in the config.
+     * @param directoryService  A valid DirectoryService object
+     * @throws Exception if any number of conditions are not met (as noted in
+     * in the summary above).
+     */
+    DirectoryServiceEntry(Map attrs, String ditItem,
+        DirectoryService directoryService) throws Exception {
+        def ditMap = directoryService.config.directoryservice.dit.find {
+            it.value.singular == ditItem
+        }
+        
+        if (!ditMap) {
+            def msg = "Could not find the dit map that corresponds to the " +
+                "passed in '${ditItem}' ditItem."
+            throw new Exception(msg)
+        }
+
+        def values = ditMap.value
+
+        if (!values.objectClass && !attrs.objectClass) {
+            def msg = "Could not find 'objectClass' values in either the " +
+                "passed in attributes or the dit map."
+            throw new Exception(msg)
+        }
+
+        def objectClass = attrs.objectClass ?: values.objectClass
+        if (objectClass.class == String) {
+            def msg = 'objectClass values must be a list.'
+            throw new Exception(msg)
+        }
+
+        if (!attrs[values.rdnAttribute]) {
+            def msg = 'Could not find the RDN attribute ' +
+                "'${values.rdnAttribute}' in the passed in attributes."
+            throw new Exception(msg)
+        }
+
+        def rdnAttr = attrs[values.rdnAttribute]
+        if (rdnAttr != String) {
+            rdnAttr = rdnAttr[0]
+        }
+        def dn      = "${values.rdnAttribute}=${rdnAttr}," + ditMap.key
+        def entry   = new Entry(dn)
+        attrs.each {key, value ->
+            entry.addAttribute(key, value)
+        }
+        if (!entry.getAttributeValue('objectClass')) {
+            entry.addAttribute('objectClass', values.objectClass)
+        }
+
+        this.searchResultEntry = new ReadOnlyEntry(entry)
+        this.entry             = entry.duplicate()
+        this.baseDN            = ditMap.key
+    }
+
+    /**
      * Any property which is called on this class is passed as a
      * getAttributeValue() method call to the {@code entry} object which is
      * set on this class. If the {@code entry} object is not set, the method

@@ -24,6 +24,7 @@ package com.canonicalidentity.directoryservice
 
 import com.unboundid.ldap.sdk.Entry
 import com.unboundid.ldap.sdk.Modification
+import com.unboundid.ldap.sdk.ReadOnlyEntry
 import com.unboundid.ldap.sdk.SearchResultEntry
 
 /**
@@ -44,7 +45,7 @@ class DirectoryServiceEntry implements Serializable {
      *
      * Gets reset to a copy of entry on cleanupAfterSave()
      */
-    SearchResultEntry searchResultEntry
+    ReadOnlyEntry searchResultEntry
 
     /**
      * UnboundID Entry object.
@@ -105,8 +106,8 @@ class DirectoryServiceEntry implements Serializable {
     DirectoryServiceEntry(SearchResultEntry searchResultEntry,
         String baseDN) {
         this.searchResultEntry = searchResultEntry
-        this.entry = searchResultEntry.duplicate()
-        this.baseDN = baseDN
+        this.entry             = searchResultEntry.duplicate()
+        this.baseDN            = baseDN
     }
 
     /**
@@ -238,7 +239,7 @@ class DirectoryServiceEntry implements Serializable {
         errors = [:]
         modifications = []
         searchResultEntry =
-            new SearchResultEntry(entry, searchResultEntry.getControls())
+            new ReadOnlyEntry(entry)
     }
 
     /**

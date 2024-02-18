@@ -374,57 +374,6 @@ class DirectoryServiceEntry implements Serializable {
     }
 
     /**
-     * Note for 0.6.1: There is no reason to maintain this since the UnboundID SDK has
-     * a Entry.diff() method that does this for us! Plus, this was not a
-     * documented API, so I feel OK removing it.
-     *
-     * Updates the modifications List with the UnboundID Modification
-     * that will be used when the entry is updated in the directory.
-     *
-     * This is called by the propertyMissing(String name, value) method, so
-     * there is no need to call it directly. However, if you want to
-     * short-circuit propertyMissing and update a bunch of attributes and then
-     * immediately save, you can use this method directly. But understand that
-     * the mods map will not be updated, and isDirty() will no know that you
-     * have modified the object.
-     *
-     * @param name              The name of the attribute for the modification.
-     * @param values            One or more String values to apply to the
-     * supplied attribute name.
-     * @see #propertyMissing(String name, value)
-     */
-    /*
-    def updateModifications(String name, String... values) {
-        if (searchResultEntry) {
-            def exists = false
-            modifications.eachWithIndex() {obj, i ->
-                if (obj.getAttributeName()?.equalsIgnoreCase(name)) {
-                    exists = true
-                    if (values) {
-                        modifications.set(i, new Modification(
-                                ModificationType.REPLACE, name, values))
-                    }
-                    else {
-                        modifications.set(i, new Modification(
-                            ModificationType.DELETE, name))
-                    }
-                }
-            }
-            if (!exists) {
-                if (values?.size() > 0) {
-                    modifications.add(new Modification(
-                        ModificationType.REPLACE, name, values))
-                }
-                else {
-                    modifications.add(new Modification(
-                        ModificationType.DELETE, name))
-                }
-            }
-        }
-    }
-    */
-
-    /**
      * Updates the {@code modifications} list by calling the UnboundID
      * Entry.diff() method against the {@code searchResultEntry} and the
      * modified {@code entry} objects.
@@ -452,5 +401,5 @@ class DirectoryServiceEntry implements Serializable {
     public void updateModifications(reversable=true, byteForByte=true) {
         modifications = Entry.diff((Entry)searchResultEntry, entry, true, reversable, true)
     }
-    
+
 }

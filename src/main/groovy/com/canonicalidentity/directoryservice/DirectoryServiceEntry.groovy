@@ -158,7 +158,7 @@ class DirectoryServiceEntry implements Serializable {
         }
 
         def objectClass = attrs.objectClass ?: values.objectClass
-        if (objectClass.class == String) {
+        if (objectClass.getClass() == java.lang.String) {
             def msg = 'objectClass values must be a list.'
             throw new Exception(msg)
         }
@@ -170,7 +170,7 @@ class DirectoryServiceEntry implements Serializable {
         }
 
         def rdnAttr = attrs[values.rdnAttribute]
-        if (rdnAttr != String) {
+        if (rdnAttr.getClass() != java.lang.String) {
             rdnAttr = rdnAttr[0]
         }
         def dn      = "${values.rdnAttribute}=${rdnAttr}," + ditMap.key

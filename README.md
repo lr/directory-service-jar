@@ -86,7 +86,8 @@ grails.plugins.directoryservice.dit = [
         plural: String,
         rdnAttribute: String,
         source: String,
-        attributes: ['*'] // Optional, and default is *. See examples below.
+        attributes: ['*'], // Optional, and default is *. See examples below.
+        objectClass: ['top', 'person', 'inetOrgPerson', 'organizationalPerson'] // Optional
     ]
 ]
 ```
@@ -100,7 +101,8 @@ grails.plugins.directoryservice.dit = [
         plural: 'people',
         rdnAttribute: 'uid',
         source:'directory',
-        attributes: ['*', 'isMemberOf']
+        attributes: ['*', 'isMemberOf'],
+        objectClass: ['top', 'person', 'inetOrgPerson', 'organizationalPerson']
     ],
     'ou=departments,dc=someu,dc=edu':[
         singular: 'department',

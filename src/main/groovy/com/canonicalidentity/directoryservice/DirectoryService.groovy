@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Lucas Rockwell
+ * Copyright 2024 Lucas Rockwell
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
 package com.canonicalidentity.directoryservice
 
 import java.security.GeneralSecurityException
+import java.util.Collections
 import java.util.logging.Logger
 
 import com.unboundid.asn1.ASN1OctetString
@@ -147,8 +148,39 @@ class DirectoryService {
        of this object's life. */
     private Map serverSets = [:]
 
-    public DirectoryService(configFile) {
+    /**
+     * Creates a new DirectoryService object which parses the passed in
+     * {@code config} as the overall config for the object. The optional
+     * {@code preventConfigMods} boolean can be passed to lock down the config
+     * so that it cannot be modified at runtime. It defaults to {@code true}.
+     *
+     * @param configFile            Path to the config file
+     * @param preventConfigMods     {@code true} if the config should not be
+     * modifiable, and {@code false} otherwise. Defaults to {@code true}.
+     */
+    public DirectoryService(configFile, preventConfigMods=true) {
         config = new ConfigSlurper().parse(new File(configFile).toURL())
+        if (preventConfigMods) {
+            this.preventConfigMods()
+        }
+    }
+
+    /**
+     * Sets the {@code sources} and {@code dit} parts of the config as
+     * unmodifiable Maps using the Collections.unmodifiableMap() method. Use
+     * this to prevent the modification of the config map during runtime.
+     */
+    def preventConfigMods() {
+        config.directoryservice.sources.each {key, value ->
+            println key
+            println value
+            config.directoryservice.sources[key] =
+                Collections.unmodifiableMap(value)
+        }
+        config.directoryservice.dit.each {key, value ->
+            config.directoryservice.dit[key] =
+                Collections.unmodifiableMap(value)
+        }
     }
 
     /**

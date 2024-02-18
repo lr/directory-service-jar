@@ -54,6 +54,14 @@ directoryservice.dit = [
         plural: 'people',
         rdnAttribute: 'uid',
         source: 'directory',
+        attributes: ['*', '+'],
+        objectClass: ['top', 'person', 'inetOrgPerson', 'organizationalPerson']
+    ],
+    'ou=peopleWithoutOCs,dc=someu,dc=edu':[
+        singular: 'personWithoutOCs',
+        plural: 'peopleWithoutOCs',
+        rdnAttribute: 'uid',
+        source: 'directory',
         attributes: ['*', '+']
     ],
     'ou=departments,dc=someu,dc=edu':[

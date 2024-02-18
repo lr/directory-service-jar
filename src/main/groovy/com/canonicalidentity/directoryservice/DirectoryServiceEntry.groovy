@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Lucas Rockwell
+ * Copyright 2024 Lucas Rockwell
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,7 @@ package com.canonicalidentity.directoryservice
 
 import com.unboundid.ldap.sdk.Entry
 import com.unboundid.ldap.sdk.Modification
+import com.unboundid.ldap.sdk.ReadOnlyEntry
 import com.unboundid.ldap.sdk.SearchResultEntry
 
 /**
@@ -44,7 +45,7 @@ class DirectoryServiceEntry implements Serializable {
      *
      * Gets reset to a copy of entry on cleanupAfterSave()
      */
-    SearchResultEntry searchResultEntry
+    ReadOnlyEntry searchResultEntry
 
     /**
      * UnboundID Entry object.
@@ -105,8 +106,117 @@ class DirectoryServiceEntry implements Serializable {
     DirectoryServiceEntry(SearchResultEntry searchResultEntry,
         String baseDN) {
         this.searchResultEntry = searchResultEntry
-        this.entry = searchResultEntry.duplicate()
-        this.baseDN = baseDN
+        this.entry             = searchResultEntry.duplicate()
+        this.baseDN            = baseDN
+    }
+
+    /**
+     * Constructs a new DirectoryServiceEntry object from the passed in Map
+     * of {@code attrs}, singular {@code ditItem} value (so that it knows how
+     * to find the dit config), and {@code directoryService} object so that it
+     * can get the config without having to create a new DirectoryService
+     * instance.
+     *
+     * The returned object can then be used just like any DirectoryServiceEntry
+     * object, modifying, it, etc., but the real purpose for it is to then add
+     * it to the server to which its baseDN belongs.
+     *
+     * The {@code attrs} must contain the RDN attribute for the {@code ditItem}.
+     * If this RDN value is a list, then the actual RDN of the DN will be the
+     * first item in the list.
+     *
+     * Either the {@code attrs} or the found dit map must contain an attribute
+     * called {@code objectClass} and must be a list of values. If there are
+     * {@code objectClass} values in both the dit map and the passed in
+     * {@code attrs}, the values from the latter will be used.
+     *
+     * @param attrs             Map of attributes and values.
+     * @param ditItem           String value of a {@code singular} item in the
+     *                          dit map in the config.
+     * @param directoryService  A valid DirectoryService object.
+     * @throws Exception if any number of conditions are not met (as noted in
+     * in the summary above).
+     */
+    DirectoryServiceEntry(Map attrs, String ditItem,
+        DirectoryService directoryService) throws Exception {
+        def ditMap = directoryService.config.directoryservice.dit.find {
+            it.value.singular == ditItem
+        }
+        
+        if (!ditMap) {
+            def msg = "Could not find the dit map that corresponds to the " +
+                "passed in '${ditItem}' ditItem."
+            throw new Exception(msg)
+        }
+
+        def values = ditMap.value
+
+        if (!values.objectClass && !attrs.objectClass) {
+            def msg = "Could not find 'objectClass' values in either the " +
+                "passed in attributes or the dit map."
+            throw new Exception(msg)
+        }
+
+        def objectClass = attrs.objectClass ?: values.objectClass
+        if (objectClass.class == String) {
+            def msg = 'objectClass values must be a list.'
+            throw new Exception(msg)
+        }
+
+        if (!attrs[values.rdnAttribute]) {
+            def msg = 'Could not find the RDN attribute ' +
+                "'${values.rdnAttribute}' in the passed in attributes."
+            throw new Exception(msg)
+        }
+
+        def rdnAttr = attrs[values.rdnAttribute]
+        if (rdnAttr != String) {
+            rdnAttr = rdnAttr[0]
+        }
+        def dn      = "${values.rdnAttribute}=${rdnAttr}," + ditMap.key
+        def entry   = new Entry(dn)
+        attrs.each {key, value ->
+            entry.addAttribute(key, value)
+        }
+        if (!entry.getAttributeValue('objectClass')) {
+            entry.addAttribute('objectClass', values.objectClass)
+        }
+
+        this.searchResultEntry = new ReadOnlyEntry(entry)
+        this.entry             = entry.duplicate()
+        this.baseDN            = ditMap.key
+    }
+
+    /**
+     * Constructs a new DirectoryServiceEntry object from the passed in Entry
+     * {@code entry}, and sets the {@code baseDN} to be the parent DN of the
+     * DN of the entry.
+     *
+     * The returned object can then be used just like any DirectoryServiceEntry
+     * object, modifying, it, etc., but the real purpose for it is to then add
+     * it to the server to which its baseDN belongs.
+     *
+     * @param entry             Entry object that will be the base object.
+     * @param directoryService  A valid DirectoryService object
+     * @throws Exception if the DN of the passed in entry cannot be parsed as
+     * a true DN, or if the parent DN of the entry cannot be found in the dit
+     * part of the config.
+     */
+    DirectoryServiceEntry(Entry entry, DirectoryService directoryService)
+        throws Exception {
+
+        def parentDN = entry.getParentDNString()
+        def ditMap   = directoryService.config.directoryservice.dit[parentDN]
+
+        if (!ditMap) {
+            def msg = "Could not find the dit map that corresponds to the " +
+                "parent DN '${parentDN}' of the passed in entry."
+            throw new Exception(msg)
+        }
+
+        this.searchResultEntry = new ReadOnlyEntry(entry)
+        this.entry             = entry.duplicate()
+        this.baseDN            = parentDN
     }
 
     /**
@@ -238,7 +348,7 @@ class DirectoryServiceEntry implements Serializable {
         errors = [:]
         modifications = []
         searchResultEntry =
-            new SearchResultEntry(entry, searchResultEntry.getControls())
+            new ReadOnlyEntry(entry)
     }
 
     /**
@@ -262,57 +372,6 @@ class DirectoryServiceEntry implements Serializable {
         }
         return false
     }
-
-    /**
-     * Note for 0.6.1: There is no reason to maintain this since the UnboundID SDK has
-     * a Entry.diff() method that does this for us! Plus, this was not a
-     * documented API, so I feel OK removing it.
-     *
-     * Updates the modifications List with the UnboundID Modification
-     * that will be used when the entry is updated in the directory.
-     *
-     * This is called by the propertyMissing(String name, value) method, so
-     * there is no need to call it directly. However, if you want to
-     * short-circuit propertyMissing and update a bunch of attributes and then
-     * immediately save, you can use this method directly. But understand that
-     * the mods map will not be updated, and isDirty() will no know that you
-     * have modified the object.
-     *
-     * @param name              The name of the attribute for the modification.
-     * @param values            One or more String values to apply to the
-     * supplied attribute name.
-     * @see #propertyMissing(String name, value)
-     */
-    /*
-    def updateModifications(String name, String... values) {
-        if (searchResultEntry) {
-            def exists = false
-            modifications.eachWithIndex() {obj, i ->
-                if (obj.getAttributeName()?.equalsIgnoreCase(name)) {
-                    exists = true
-                    if (values) {
-                        modifications.set(i, new Modification(
-                                ModificationType.REPLACE, name, values))
-                    }
-                    else {
-                        modifications.set(i, new Modification(
-                            ModificationType.DELETE, name))
-                    }
-                }
-            }
-            if (!exists) {
-                if (values?.size() > 0) {
-                    modifications.add(new Modification(
-                        ModificationType.REPLACE, name, values))
-                }
-                else {
-                    modifications.add(new Modification(
-                        ModificationType.DELETE, name))
-                }
-            }
-        }
-    }
-    */
 
     /**
      * Updates the {@code modifications} list by calling the UnboundID
@@ -342,5 +401,5 @@ class DirectoryServiceEntry implements Serializable {
     public void updateModifications(reversable=true, byteForByte=true) {
         modifications = Entry.diff((Entry)searchResultEntry, entry, true, reversable, true)
     }
-    
+
 }

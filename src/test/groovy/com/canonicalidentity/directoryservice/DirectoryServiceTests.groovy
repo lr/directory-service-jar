@@ -65,6 +65,23 @@ class DirectoryServiceTests extends GroovyTestCase {
         adInMemServerWithPool?.shutDown()
     }
 
+    void testPreventConfigMods() {
+        def ds = new DirectoryService(dsConfigFile, false)
+        assertNotNull ds.config.directoryservice.sources
+        assertNotNull ds.config.directoryservice.sources['directory']
+        ds.config.directoryservice.sources['directory']['newKey'] = 'newValue'
+
+        assertEquals ds.config.directoryservice.sources['directory']['newKey'], 'newValue'
+
+        ds.preventConfigMods()
+        try {
+            ds.config.directoryservice.sources['directory']['useSSL'] = true
+        }
+        catch (java.lang.UnsupportedOperationException e) {
+            assertEquals e.class, java.lang.UnsupportedOperationException
+        }
+    }
+
     /*
      * Test the getting the source from the provided base.
      */

@@ -98,6 +98,7 @@ class DirectoryServiceEntryEntryTests extends GroovyTestCase {
             uid: 'test.user123',
             objectClass: 'top'
         ]
+
         try {
             def entry = new DirectoryServiceEntry(attrs, 'person', directoryService)
         }
@@ -141,4 +142,22 @@ class DirectoryServiceEntryEntryTests extends GroovyTestCase {
         assertEquals entry.entry.getAttributeValues('objectClass').size(), 4
     }
 
+    void testNewEntryWorksWithPassedInEntry() {
+        def ubidEntry = new Entry('uid=testing,ou=people,dc=someu,dc=edu')
+
+        def entry = new DirectoryServiceEntry(ubidEntry, directoryService)
+        assertNotNull entry
+        assertEquals entry.baseDN, 'ou=people,dc=someu,dc=edu'
+    }
+
+    void testNewEntryFailsWhenPassedInEntryHasInvalidDN() {
+        def ubidEntry = new Entry('uid=testing,ou=blah,dc=someu,dc=edu')
+
+        try {
+            def entry = new DirectoryServiceEntry(ubidEntry, directoryService)
+        }
+        catch (Exception e) {
+            assertEquals e.getMessage(), "Could not find the dit map that corresponds to the parent DN 'ou=blah,dc=someu,dc=edu' of the passed in entry."
+        }
+    }
 }

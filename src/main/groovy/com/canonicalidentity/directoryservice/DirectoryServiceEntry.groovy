@@ -133,7 +133,7 @@ class DirectoryServiceEntry implements Serializable {
      * @param attrs             Map of attributes and values.
      * @param ditItem           String value of a {@code singular} item in the
      *                          dit map in the config.
-     * @param directoryService  A valid DirectoryService object
+     * @param directoryService  A valid DirectoryService object.
      * @throws Exception if any number of conditions are not met (as noted in
      * in the summary above).
      */
@@ -185,6 +185,38 @@ class DirectoryServiceEntry implements Serializable {
         this.searchResultEntry = new ReadOnlyEntry(entry)
         this.entry             = entry.duplicate()
         this.baseDN            = ditMap.key
+    }
+
+    /**
+     * Constructs a new DirectoryServiceEntry object from the passed in Entry
+     * {@code entry}, and sets the {@code baseDN} to be the parent DN of the
+     * DN of the entry.
+     *
+     * The returned object can then be used just like any DirectoryServiceEntry
+     * object, modifying, it, etc., but the real purpose for it is to then add
+     * it to the server to which its baseDN belongs.
+     *
+     * @param entry             Entry object that will be the base object.
+     * @param directoryService  A valid DirectoryService object
+     * @throws Exception if the DN of the passed in entry cannot be parsed as
+     * a true DN, or if the parent DN of the entry cannot be found in the dit
+     * part of the config.
+     */
+    DirectoryServiceEntry(Entry entry, DirectoryService directoryService)
+        throws Exception {
+
+        def parentDN = entry.getParentDNString()
+        def ditMap   = directoryService.config.directoryservice.dit[parentDN]
+
+        if (!ditMap) {
+            def msg = "Could not find the dit map that corresponds to the " +
+                "parent DN '${parentDN}' of the passed in entry."
+            throw new Exception(msg)
+        }
+
+        this.searchResultEntry = new ReadOnlyEntry(entry)
+        this.entry             = entry.duplicate()
+        this.baseDN            = parentDN
     }
 
     /**

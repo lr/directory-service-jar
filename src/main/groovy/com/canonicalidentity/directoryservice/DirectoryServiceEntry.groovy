@@ -403,4 +403,36 @@ class DirectoryServiceEntry implements Serializable {
             reversable, byteForByte)
     }
 
+    /**
+     * Takes the passed in {@code entryToMatch} and diffs it with the underlying
+     * {@code entry} object, and sets the {@code modifications} as the output
+     * of Entry.diff(). If {@code entryToMatch} is an Entry object, it just uses
+     * that, if it is a DirectoryServiceEntry object, then it grabs the
+     * underlying {@code entry} object. You must also pass in
+     * {@code attrsToCompare} so that read only attributes like entryUUID,
+     * creatorsName, etc., are not being compared. Also, you many only want to
+     * compare a few attributes, and probably never want to compare the
+     * objectClass attribute, so this list makes the whole operation more
+     * predictable.
+     *
+     * @param entryToMatch      The Entry or DirectoryServiceEntry object to
+     *                          compare.
+     * @param attrsToCompare    List of attributes to use in the comparison.
+     * @param reversable        Whether or not the diff should use DELETE/ADD
+     *                          instead of REPLACE. Default is <code>true</code>.
+     * @param byteForByte       Whether or not the diff should do a
+     *                          byte-for-byte comparison of the attribute
+     *                          changes. Default is <code>true</code>.
+     */
+    public void modifyToMatch(entryToMatch, attrsToCompare, reversable=true,
+        byteForByte=true) {
+
+        if (entryToMatch.getClass() == 
+            com.canonicalidentity.directoryservice.DirectoryServiceEntry) {
+            entryToMatch = entryToMatch.entry
+        }
+        modifications = Entry.diff(entry, entryToMatch, true, reversable,
+            byteForByte, attrsToCompare as String[])
+    }
+
 }

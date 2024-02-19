@@ -160,4 +160,52 @@ class DirectoryServiceEntryEntryTests extends GroovyTestCase {
             assertEquals e.getMessage(), "Could not find the dit map that corresponds to the parent DN 'ou=blah,dc=someu,dc=edu' of the passed in entry."
         }
     }
+
+    void testDiffingDSEntries() {
+        def updatedUid0Map = [
+            givenName: 'John',
+            sn: 'Smith II',
+            cn: ['Smith, John', 'John Smith'],
+            displayName: 'John Smith II',
+            initials: 'JDS',
+            generationalTitle: 'II',
+            uid: '0'
+        ]
+
+        def attrsToCompare = ['givenName', 'sn', 'cn', 'displayName', 'initials', 'generationalTitle', 'uid']
+
+        def updatedUid0 = new DirectoryServiceEntry(updatedUid0Map, 'person', directoryService)
+        def uid0        = directoryService.findPersonWhere(uid: '0')
+
+        // Passes in the DirectoryServiceEntry object
+        uid0.modifyToMatch(updatedUid0, attrsToCompare)
+        
+        assertNotNull uid0.modifications
+        assertEquals uid0.modifications.size(), 5
+
+    }
+
+    void testDiffingUBIDEntries() {
+        def updatedUid0Map = [
+            givenName: 'John',
+            sn: 'Smith II',
+            cn: ['Smith, John', 'John Smith'],
+            displayName: 'John Smith II',
+            generationalTitle: 'II',
+            uid: '0'
+        ]
+
+        def attrsToCompare = ['givenName', 'sn', 'cn', 'displayName', 'initials', 'generationalTitle', 'uid']
+
+        def updatedUid0 = new DirectoryServiceEntry(updatedUid0Map, 'person', directoryService)
+        def uid0        = directoryService.findPersonWhere(uid: '0')
+
+        // Passes in the underlying Entry object
+        uid0.modifyToMatch(updatedUid0.entry, attrsToCompare)
+        
+        assertNotNull uid0.modifications
+        assertEquals uid0.modifications.size(), 6 // removed initials
+
+    }
+
 }

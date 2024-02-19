@@ -172,8 +172,6 @@ class DirectoryService {
      */
     def preventConfigMods() {
         config.directoryservice.sources.each {key, value ->
-            println key
-            println value
             config.directoryservice.sources[key] =
                 Collections.unmodifiableMap(value)
         }

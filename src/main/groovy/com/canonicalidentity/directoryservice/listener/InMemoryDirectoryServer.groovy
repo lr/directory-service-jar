@@ -154,7 +154,8 @@ class InMemoryDirectoryServer {
             startListening()
         }
         catch(LDAPException e) {
-            log.error "Could not start InMemoryDirectoryServer listener: $e.message $props", e
+            props.bindPassword = '--removed--'
+            log.warning "Could not start InMemoryDirectoryServer listener: ${e.message} - ${props}"
         }
     }
 
@@ -210,7 +211,7 @@ class InMemoryDirectoryServer {
             }
         }
         catch (LDAPException e) {
-            log.error "Could not create InMemoryDirectoryServer: $e.message", e
+            log.warning "Could not create InMemoryDirectoryServer: ${e.message}"
         }
     }
 
@@ -277,11 +278,11 @@ class InMemoryDirectoryServer {
             return new Schema(entry)
         }
         catch(LDIFException e) {
-            log.error "Could not parse the ldif: $e.message", e
+            log.warning "Could not parse the ldif: ${e.message}"
             return new Schema(new Entry("cn=schema"))
         }
         catch(IOException e) {
-            log.error "Could not read the provided file (${schemaLDIF}): $e.message", e
+            log.warning "Could not read the provided file (${schemaLDIF}): ${e.message}"
             return new Schema(new Entry("cn=schema"))
         }
         finally {

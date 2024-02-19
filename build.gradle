@@ -1,6 +1,6 @@
 apply plugin: 'groovy'
 
-version = '0.9.0'
+version = '0.9.1'
 
 //Get dependencies from Maven central repository
 repositories {

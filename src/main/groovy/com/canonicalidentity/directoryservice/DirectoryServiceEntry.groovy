@@ -399,7 +399,8 @@ class DirectoryServiceEntry implements Serializable {
      *                      <code>true</code>.
      */
     public void updateModifications(reversable=true, byteForByte=true) {
-        modifications = Entry.diff((Entry)searchResultEntry, entry, true, reversable, true)
+        modifications = Entry.diff((Entry)searchResultEntry, entry, true,
+            reversable, byteForByte)
     }
 
 }

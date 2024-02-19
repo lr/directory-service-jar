@@ -394,19 +394,27 @@ class DirectoryService {
     }
 
     /**
+     * Saves the passed in DirectoryServiceEntry to the directory that is
+     * associated with the entry's DN.
+     *
+     * @see The {@code save(DirectoryServiceEntry entry)} method.
+     * 
+     * @param entry         The DirectoryServiceEntry to save.
+     * @return {@code true} on success, {@code false} otherwise.
+     */
+    def modify(DirectoryServiceEntry entry) {
+        return save(entry)
+    }
+
+    /**
      * Saves the passed in DirectoryServiceEntry to the directory that
-     * is associated with the given DN. This could get tricky if you have
+     * is associated with the entry's DN. This could get tricky if you have
      * objects from competing directories that might have the same parent DN
      * of the passed in object. But for now, this is the only way I know how to
      * do this.
      *
-     * Note: A future version of DirectoryServiceEntry will have an errors
-     * object that implements the Spring Errors interface, so the error handling
-     * will change.
-     *
      * @param entry         The DirectoryServiceEntry to save.
      * @return {@code true} on success, {@code false} otherwise.
-     * @throws
      */
     def save(DirectoryServiceEntry entry) {
         def conn = connection(entry?.baseDN)

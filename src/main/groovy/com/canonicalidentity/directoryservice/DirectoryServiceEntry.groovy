@@ -189,6 +189,70 @@ class DirectoryServiceEntry implements Serializable {
 
     /**
      * Constructs a new DirectoryServiceEntry object from the passed in Entry
+     * {@code entry}, and uses the passed in singular {@code ditItem} and
+     * updates the passed in entry based on the base DN, rdnAttribute, and
+     * objectClass values in found in the ditMap associated with the
+     * {@code ditItem}.
+     *
+     * The returned object can then be used just like any DirectoryServiceEntry
+     * object, modifying, it, etc., but the real purpose for it is to then add
+     * it to the server to which its baseDN belongs.
+     *
+     * @param entry             Entry object that will be the base object.
+     * @param ditItem           String value of a {@code singular} item in the
+     *                          dit map in the config.
+     * @param directoryService  A valid DirectoryService object
+     * @throws Exception if the DN of the passed in entry cannot be parsed as
+     * a true DN, or if the parent DN of the entry cannot be found in the dit
+     * part of the config.
+     */
+    DirectoryServiceEntry(Entry entry, String ditItem, 
+        DirectoryService directoryService) throws Exception {
+
+        def ditMap = directoryService.config.directoryservice.dit.find {
+            it.value.singular == ditItem
+        }
+
+        if (!ditMap) {
+            def msg = "Could not find the dit map that corresponds to the " +
+                "parent DN '${parentDN}' of the passed in entry."
+            throw new Exception(msg)
+        }
+
+        def values = ditMap.value
+
+        if (!values.objectClass) {
+            def msg = "Could not find 'objectClass' values in either the " +
+                "passed in attributes or the dit map."
+            throw new Exception(msg)
+        }
+
+        def objectClass = values.objectClass
+        if (objectClass.getClass() == java.lang.String) {
+            def msg = 'objectClass values must be a list.'
+            throw new Exception(msg)
+        }
+
+        if (!entry.getAttributeValue(values.rdnAttribute)) {
+            def msg = 'Could not find the RDN attribute ' +
+                "'${values.rdnAttribute}' in the passed in attributes."
+            throw new Exception(msg)
+        }
+
+        def parentDN     = ditMap.key
+        def rdnAttribute = values.rdnAttribute
+        def rdnAttrValue = entry.getAttributeValue(rdnAttribute)
+        def dn           = "${rdnAttribute}=${rdnAttrValue},${parentDN}"
+        entry.setDN(dn)
+        entry.setAttribute('objectClass', objectClass)
+
+        this.searchResultEntry = new ReadOnlyEntry(entry)
+        this.entry             = entry.duplicate()
+        this.baseDN            = parentDN
+    }
+
+    /**
+     * Constructs a new DirectoryServiceEntry object from the passed in Entry
      * {@code entry}, and sets the {@code baseDN} to be the parent DN of the
      * DN of the entry.
      *

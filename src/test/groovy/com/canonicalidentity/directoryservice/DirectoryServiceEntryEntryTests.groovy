@@ -150,6 +150,25 @@ class DirectoryServiceEntryEntryTests extends GroovyTestCase {
         assertEquals entry.baseDN, 'ou=people,dc=someu,dc=edu'
     }
 
+    void testNewEntryWorksWithPassedInEntryAndDitItem() {
+        def ubidEntry = new Entry(
+            'dn: cn=testing,ou=something...,dc=someu,dc=edu',
+            'uid: testing',
+            'objectClass: something',
+            'objectClass: somethingElse'
+        )
+
+        def entry = new DirectoryServiceEntry(ubidEntry, 'person', directoryService)
+        assertNotNull entry
+        assertEquals entry.baseDN, 'ou=people,dc=someu,dc=edu'
+        assertEquals entry.dn, 'uid=testing,ou=people,dc=someu,dc=edu'
+        
+        def objectClasses = entry.entry.getAttributeValues('objectClass')
+        assertFalse objectClasses.contains('something')
+        assertFalse objectClasses.contains('somethingElse')
+        assertEquals objectClasses.size(), 4
+    }
+
     void testNewEntryFailsWhenPassedInEntryHasInvalidDN() {
         def ubidEntry = new Entry('uid=testing,ou=blah,dc=someu,dc=edu')
 

@@ -191,7 +191,7 @@ class DirectoryServiceEntry implements Serializable {
      * Constructs a new DirectoryServiceEntry object from the passed in Entry
      * {@code entry}, and uses the passed in singular {@code ditItem} and
      * updates the passed in entry based on the base DN, rdnAttribute, and
-     * objectClass values in found in the ditMap associated with the
+     * objectClass values found in the ditMap associated with the
      * {@code ditItem}.
      *
      * The returned object can then be used just like any DirectoryServiceEntry

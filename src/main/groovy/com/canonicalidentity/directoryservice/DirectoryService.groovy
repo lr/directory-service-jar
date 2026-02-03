@@ -392,6 +392,56 @@ class DirectoryService {
     }
 
     /**
+     * Takes the provided {@code attr}, extracts a list of values from the
+     * provided {@code entry} object, then finds the actual value of that
+     * object from the directory.
+     *
+     * attribute, and then for each value, it fetches the underlying object
+     * and returns a list of {@code DirectoryServiceEntry} objects.
+     *
+     * It will return an empty list if there was no attr on the entry, or if no
+     * corresponding entries where found. It will also return an empty list if
+     * the DN object points to an area of the directory that is not specified
+     * in the {@code directoryservice.dit} section of the config. For instance,
+     * the {@code seeAlso} attribute can point to any DN object in the directory
+     * yet those values may point to objects that are not coinfigured.
+     *
+     * This is being done in DirectoryService because we want to keep connection
+     * activities out of the DirectoryServiceEntry object.
+     *
+     * @param entry         The entry that holds the attr.
+     * @param attr          The name of the DN attribute.
+     * @param pattern       A pattern to match against the DN string. Defaults
+     *                      to none.
+     * @param attrs         List of attrs to return for the entry. Defaults to
+     *                      all.
+     * @return A list of objects that the DN attribute values, point to. 
+     */
+    def attrAsObjects(entry, attr, pattern=null, attrs=['*']) {
+        println "starting attrAsObjects: ${new Date()}"
+        def objects = []
+
+        def dn     = new DN(entry.dn)
+        def rdn    = dn?.getRDNString()
+        def baseDN = dn?.getParentString()
+
+        def values = (List)entry?.entry?.getAttributeValues(attr)
+        values.each {value ->
+            if (!pattern || (pattern && value.contains(pattern))) {
+                def results = searchUsingFilter(baseDN, rdn, [:], attrs?.join(','))
+                if (results?.size() == 1) {
+                    objects.push(results[0])
+                }
+                else {
+                    log.info "Found more than one entry for ${dn} search."
+                }
+            }
+        }
+        println "ending attrAsObjects: ${new Date()}"
+        return objects
+    }
+
+    /**
      * Saves the passed in DirectoryServiceEntry to the directory that is
      * associated with the entry's DN.
      *

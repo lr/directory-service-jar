@@ -10833,3 +10833,23 @@ objectClass: groupOfNames
 cn: service desk
 description: This is the Service Desk group
 member: uid=3,ou=people,dc=someu,dc=edu
+
+dn: cn=iam team,ou=groups,dc=someu,dc=edu
+objectClass: top
+objectClass: groupOfNames
+cn: iam team
+description: This is the IAM Team's group
+member: uid=3,ou=people,dc=someu,dc=edu
+member: uid=4,ou=people,dc=someu,dc=edu
+member: uid=5,ou=people,dc=someu,dc=edu
+
+dn: cn=some group,ou=groups,dc=someu,dc=edu
+objectClass: top
+objectClass: groupOfNames
+cn: some group
+description: This is just some group
+member: uid=6,ou=people,dc=someu,dc=edu
+member: cn=iam team,ou=groups,dc=someu,dc=edu
+owner: uid=6,ou=people,dc=someu,dc=edu
+owner: cn=iam team,ou=groups,dc=someu,dc=edu
+owner: cn=service desk,ou=groups,dc=someu,dc=edu

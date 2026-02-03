@@ -680,6 +680,39 @@ class DirectoryServiceTests extends GroovyTestCase {
     }
 
     /**
+     * Test getting attribute as objects (all).
+     */
+    void testAttrAsObjectsAll() {
+        def group = directoryService.getGroup('some group')
+        assertNotNull group
+
+        def owners = directoryService.attrAsObjects(group, 'owner')
+        assertEquals owners.size(), 3
+    }
+
+    /**
+     * Test getting attribute as objects (groups).
+     */
+    void testAttrAsObjectsGroupsOnly() {
+        def group = directoryService.getGroup('some group')
+        assertNotNull group
+
+        def owners = directoryService.attrAsObjects(group, 'owner', 'group')
+        assertEquals owners.size(), 2
+    }
+
+    /**
+     * Test getting attribute as objects (people).
+     */
+    void testAttrAsObjectsPeopleOnly() {
+        def group = directoryService.getGroup('some group')
+        assertNotNull group
+
+        def owners = directoryService.attrAsObjects(group, 'owner', 'people')
+        assertEquals owners.size(), 1
+    }
+
+    /**
      * Test snapshotting
      */
     void testSnapshot() {

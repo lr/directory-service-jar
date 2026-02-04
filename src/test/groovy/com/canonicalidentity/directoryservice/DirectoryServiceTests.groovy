@@ -512,7 +512,7 @@ class DirectoryServiceTests extends GroovyTestCase {
      * Test get, which operates on the RDN attribute of the dit object
      * specified.
      */
-    void testGet() {
+    void testGetUsingAttr() {
        def person = directoryService.getPerson('1')
        assertNotNull person
        assertEquals person.uid, '1'
@@ -520,6 +520,18 @@ class DirectoryServiceTests extends GroovyTestCase {
        def account = directoryService.getAccount('Lavers, Matthew')
        assertNotNull account
        assertEquals account.uid, '139'
+    }
+
+    void testGetUsingDN() {
+        def person = directoryService.getPerson('uid=1,ou=people,dc=someu,dc=edu')
+        assertNotNull person
+        assertEquals person.uid, '1'
+        assertEquals person.displayName, 'Jim Williams'
+
+        def account = directoryService.getAccount('cn=Evans\\, Sally,ou=Aerospace Engineering,ou=accounts,dc=someu,dc=edu')
+        assertNotNull account
+        assertEquals account.uid, '2'
+        assertEquals account.displayName, 'Sally Evans'
     }
 
     /**

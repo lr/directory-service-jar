@@ -431,16 +431,19 @@ class DirectoryService {
     def attrAsObjects(entry, attr, pattern=null, attrs=['*']) {
         def objects = []
 
-        def dn     = new DN(entry.dn)
-        def rdn    = dn?.getRDNString()
-        def baseDN = dn?.getParentString()
-
         def values = (List)entry?.entry?.getAttributeValues(attr)
         values.each {value ->
             if (!pattern || (pattern && value.contains(pattern))) {
-                def results = searchUsingFilter(baseDN, rdn, [:], attrs?.join(','))
+                def filter   = '(objectClass=*)'
+                def controls = [scope: 'base']
+                def results  = searchUsingFilter(
+                    value, filter, controls, attrs?.join(','))
+
                 if (results?.size() == 1) {
-                    objects.push(results[0])
+                    def dn     = new DN(results[0].getDN())
+                    def baseDN = dn?.getParentString()
+                    def dse = new DirectoryServiceEntry(results[0], baseDN)
+                    objects.push(dse)
                 }
                 else {
                     log.info "Found more than one entry for ${dn} search."

@@ -722,6 +722,7 @@ class DirectoryServiceTests extends GroovyTestCase {
 
         def owners = directoryService.attrAsObjects(group, 'owner', 'people')
         assertEquals owners.size(), 1
+        assertEquals owners[0].uid, '6'
     }
 
     /**

@@ -187,8 +187,9 @@ class DirectoryService {
      * <ul>
      *   <li>find&lt;plural&gt;Where(Map of attribute/value pairs)</li>
      *   <li>find&lt;singular&gt;Where(Map of attribute/value pairs)</li>
-     *   <li>find&lt;plural&gt;UsingFilter(Filter)</li>
+     *   <li>find&lt;plural&gt;UsingFilter(Filter)</li>>
      *   <li>get&lt;singular&gt;(RDN attribute value)</li>
+     *   <li>get&lt;singular&gt;(DN of object)</li>
      * </ul>
      */
     def methodMissing(String name, args) {
@@ -201,9 +202,19 @@ class DirectoryService {
                 }
                 if (method) {
                     def dit = directoryServiceConfig.dit[method.key]
+                    def value = args[0]
+                    if (value?.contains('=')) {
+                        // This can still fail, but we are assuming a DN now.
+                        def dn  = new DN(value)
+                        def rdn = dn?.getRDN()
+                        def values = rdn?.getAttributeValues()
+                        if (values?.size() > 0) {
+                            value = values[0]
+                        }
+                    }
                     return args.size() > 1 ?
-                        findEntry(method.key, [(dit.rdnAttribute):args[0]], args[1]) : 
-                            findEntry(method.key, [(dit.rdnAttribute):args[0]])
+                        findEntry(method.key, [(dit.rdnAttribute):value], args[1]) :
+                            findEntry(method.key, [(dit.rdnAttribute):value])
                 }
             }
             else if (name == 'findSubentriesWhere' && args.size() > 1 ) {
@@ -418,7 +429,6 @@ class DirectoryService {
      * @return A list of objects that the DN attribute values, point to. 
      */
     def attrAsObjects(entry, attr, pattern=null, attrs=['*']) {
-        println "starting attrAsObjects: ${new Date()}"
         def objects = []
 
         def dn     = new DN(entry.dn)
@@ -437,7 +447,6 @@ class DirectoryService {
                 }
             }
         }
-        println "ending attrAsObjects: ${new Date()}"
         return objects
     }
 

@@ -428,7 +428,8 @@ class DirectoryService {
      *                      all.
      * @return A list of objects that the DN attribute values, point to. 
      */
-    def attrAsObjects(entry, attr, pattern=null, attrs=['*']) {
+    def attrAsObjects(DirectoryServiceEntry entry, String attr,
+        String pattern=null, List attrs=['*']) {
         def objects = []
 
         def values = (List)entry?.entry?.getAttributeValues(attr)

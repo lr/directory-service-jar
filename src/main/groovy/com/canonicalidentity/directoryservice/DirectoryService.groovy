@@ -438,7 +438,7 @@ class DirectoryService {
                 def filter   = '(objectClass=*)'
                 def controls = [scope: 'base']
                 def results  = searchUsingFilter(
-                    value, filter, controls, attrs?.join(','))
+                    value, filter, controls, attrs?.toArray(new String[0]))
 
                 if (results?.size() == 1) {
                     def dn     = new DN(results[0].getDN())

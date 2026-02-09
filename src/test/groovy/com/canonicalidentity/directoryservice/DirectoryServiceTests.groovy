@@ -726,6 +726,21 @@ class DirectoryServiceTests extends GroovyTestCase {
     }
 
     /**
+     * Test getting attribute as objects (people) with limited attrs.
+     */
+    void testAttrAsObjectsPeopleOnlyLimitedAttrs() {
+        def group = directoryService.getGroup('some group')
+        assertNotNull group
+
+        def owners = directoryService.attrAsObjects(group, 'owner', 'people', ['sn', 'mail'])
+        assertEquals owners.size(), 1
+        assertNull owners[0].uid
+        assertNull owners[0].givenName
+        assertEquals owners[0].sn, 'Nguyen'
+        assertEquals owners[0].mail, 'Julie.Nguyen@someu.edu'
+    }
+
+    /**
      * Test snapshotting
      */
     void testSnapshot() {

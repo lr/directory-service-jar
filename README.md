@@ -1,41 +1,47 @@
 # DirectoryService
 
-*Note: This README is references the [Grails DirectoryService plugin](https://github.com/lr/directory-service-grails-plugin). We are in the process of updating this document.*
+DirectoryService is a Groovy-based library that allows you to interact with a v3-compliant LDAP server with minimal effort. It is built on top of the [Ping/UnboundID](http://www.pingidentity.com/) [LDAP SDK](https://github.com/pingidentity/ldapsdk) ([UnboundID LDAP SDK for Java](https://docs.ldap.com/ldap-sdk/docs/index.html)  [docs](https://docs.ldap.com/ldap-sdk/docs/javadoc/index.html)).
 
-DirectoryService is a Groovy-based library that allows you to interact with a v3-compliant LDAP server with minimal effort. It is built on top of the [UnboundID](http://www.unboundid.com/) [LDAP SDK](http://www.unboundid.com/products/ldap-sdk/) ([UnboundID LDAP SDK Java docs](https://www.unboundid.com/products/ldap-sdk/docs/javadoc/index.html)).
-
-DirectoryService is made up of two key classes, the DirectoryService Grails Service class, and the DirectoryServiceEntry class, the class to which results are mapped.
+`DirectoryService` is made up of two key classes, the `DirectoryService` itself, and the `DirectoryServiceEntry` class, which is the class to which results are mapped.
 
 ## Install
 
-To install the plugin, add the following to the `plugins` section of BuildConfig.groovy:
+As for version `0.11.0`, you need to download and build the jar yourself. After cloning this repo, run the following:
+
+    gradle jar
+
+The resulting jar file will be locaed in the `bin/libs` directory.
+
+In the `dependencies` section of a Gradle project's build.gradle, as the following:
 
 ```groovy
-runtime ":directory-service:0.10.1"
+implementation 'com.unboundid:unboundid-ldapsdk:7.0.4'
+implementation files('<path to>/directory-service-jar-0.11.0.jar')
 ```
 
 ## Configure
 
 DirectoryService requires two Maps to be configured:
 
-* `grails.plugins.directoryservice.sources`
-* `grails.plugins.directoryservice.dit`
+* `directoryservice.sources`
+* `directoryservice.dit`
 
-Since both of these are Groovy Map objects, they must be put in a `.groovy` file (like `grails-app/conf/Config.groovy` or some other ConfigSlurper file), and can not go in a `.properties` file.
+Since both of these are Groovy Map objects, they must be put in a `.groovy` file (like `grails-app/conf/DSConfig.groovy` or some other ConfigSlurper file), and can not go in a `.properties` file. See [conf/Config.groovy](conf/Config.groovy) as an example.
 
 ### Directory Sources Map
 
-The `grails.plugins.directoryservice.sources` Map is called sources for a reason: You can have more than one directory source. Where I work we have a main directory service, 5 AD domains, and an AD Global Catalog; that's 7 sources! So, this plugin is designed to work with all of your directory sources at once. This is very much modeled after that multiple `dataSource` feature of GORM.
+The `directoryservice.sources` Map is called sources for a reason: You can have more than one directory source. I once worked where there was a main LDAP directory service, 5 AD domains, and an AD Global Catalog; that's 7 sources! So, this plugin is designed to work with all of your directory sources at once. This is very much modeled after that multiple `dataSource` feature of GORM.
 
-The `grails.plugins.directoryservice.sources` uses the following syntax:
+The `directoryservice.sources` uses the following syntax:
 
 ```groovy
-ds.sources = [
+directoryservice.sources = [
     'source name':[
         address: String // Single address, multiple separated by a ",".
         port: String, // Single port, or multiple separated by a ",". Must match 'address' number.
         useSSL: boolean,
         trustSSLCert: boolean,
+        followReferrals: boolean,
         bindDN: String,
         bindPassword: String,
         useConnectionPool: boolean, // Optional
@@ -45,10 +51,10 @@ ds.sources = [
 ]
 ```
 
-So, if you have two sources, like an "enterprise directory", and "AD Global Catalog", your `grails.plugins.directoryservice.sources` might look like this:
+So, if you have two sources, like an "enterprise directory", and "AD Global Catalog", your `directoryservice.sources` might look like this:
 
 ```groovy
-grails.plugins.directoryservice.sources = [
+directoryservice.sources = [
     'directory':[
         address: 'ldap.someu.edu',
         port: '636',
@@ -71,16 +77,18 @@ grails.plugins.directoryservice.sources = [
 ]
 ```
 
+Since this is a `.groovy` file, you can replace any of the above values with references to your config system, or even `System.getenv(...)`
+
 You will see how these sources are referenced in the DIT Map, below.
 
 ### Directory DIT Map
 
-The `grails.plugins.directoryservice.dit` is another Map that is literally a map of your directory. Of course, you only need to map out the areas of your directory that you want to use. For instance, for the above two sources, we might have a few sections that we want to define: `people`, `departments`, `accounts`, and `groups` (at least one type of group).
+The `directoryservice.dit` is another Map that is literally a map of your directory. Of course, you only need to map out the areas of your directory that you want to use. For instance, for the above two sources, we might have a few sections that we want to define: `people`, `departments`, `accounts`, and `groups` (at least one type of group).
 
-The `ds.dit` uses the following syntax:
+The `directoryservice.dit` uses the following syntax:
 
 ```groovy
-grails.plugins.directoryservice.dit = [
+directoryservice.dit = [
     'base DN of the branch':[
         singular: String,
         plural: String,
@@ -92,10 +100,10 @@ grails.plugins.directoryservice.dit = [
 ]
 ```
 
-So, let's define our four branches and relate them to the two sources we defined in `grails.plugins.directoryservice.sources`:
+So, let's define our four branches and relate them to the two sources we defined in `directoryservice.sources`:
 
 ```groovy
-grails.plugins.directoryservice.dit = [
+directoryservice.dit = [
     'ou=people,dc=someu,dc=edu':[
         singular: 'person',
         plural: 'people',
@@ -141,7 +149,6 @@ See the Usage section for details on how to perform searches using the informati
 
 ### Add DirectoryService
 
-DirectoryService is just like any other [Grails Service](http://grails.org/doc/latest/guide/single.html#services), and can be added to your Controller and Service classes the way any other service is added.
 
 ```groovy
 def directoryService
@@ -243,4 +250,4 @@ See the [UnboundID LDAP SDK Java docs](https://www.unboundid.com/products/ldap-s
 
 ## License
 
-DirectoryService is licensed under the terms of the [Apache License, Version 2.0 (LICENSE-2.0)](http://www.apache.org/licenses/LICENSE-2.0). The UnboundID LDAP SDK is licensed under the terms of three different licenses. Please see the [UnboundID LDAP SDK for Java docs page](https://www.unboundid.com/products/ldap-sdk/docs/javadoc/index.html) for more information.
+DirectoryService is licensed under the terms of the [BSD 3-Clause License](http://www.apache.org/licenses/LICENSE-2.0). The UnboundID LDAP SDK is licensed under the terms of three different licenses. Please see the [UnboundID LDAP SDK for Java docs page](https://www.unboundid.com/products/ldap-sdk/docs/javadoc/index.html) for more information.

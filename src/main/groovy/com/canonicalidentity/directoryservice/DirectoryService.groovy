@@ -190,7 +190,7 @@ class DirectoryService {
      * modifiable, and {@code false} otherwise. Defaults to {@code true}.
      */
     public DirectoryService(configFile, preventConfigMods=true) {
-        config = new ConfigSlurper().parse(new File(configFile).toURL())
+        config = new ConfigSlurper().parse(new File(configFile).toURI().toURL())
         if (preventConfigMods) {
             this.preventConfigMods()
         }
@@ -407,7 +407,9 @@ class DirectoryService {
         else {
             def filters = []
             args.each { arg ->
-                filters.push(
+                // add(), not push(): since Groovy 2.5, push() inserts at the
+                // front, which would reverse the terms.
+                filters.add(
                     LDAPFilter.createEqualityFilter(arg.key, arg.value))
             }
             filter = LDAPFilter.createANDFilter(filters)
@@ -475,7 +477,9 @@ class DirectoryService {
                     def dn     = new DN(results[0].getDN())
                     def baseDN = dn?.getParentString()
                     def dse = new DirectoryServiceEntry(results[0], baseDN)
-                    objects.push(dse)
+                    // add(), not push(): since Groovy 2.5, push() inserts
+                    // at the front, which would reverse the DN order.
+                    objects.add(dse)
                 }
                 else {
                     log.info "Found more than one entry for ${dn} search."

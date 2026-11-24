@@ -6,18 +6,25 @@ DirectoryService is a Groovy-based library that allows you to interact with a v3
 
 ## Install
 
-As for version `0.11.0`, you need to download and build the jar yourself. After cloning this repo, run the following:
+Requires Java 21 or later. DirectoryService is built with Groovy 6 and the UnboundID LDAP SDK 7.
 
-    gradle jar
+As of version `0.12.0`, you need to download and build the jar yourself. After cloning this repo, run the following (the Gradle wrapper downloads the right Gradle version for you):
 
-The resulting jar file will be locaed in the `bin/libs` directory.
+    ./gradlew jar
 
-In the `dependencies` section of a Gradle project's build.gradle, as the following:
+The resulting jar file will be located in the `build/libs` directory.
+
+In the `dependencies` section of a Gradle project's build.gradle, add the following:
 
 ```groovy
-implementation 'com.unboundid:unboundid-ldapsdk:7.0.4'
-implementation files('<path to>/directory-service-jar-0.11.0.jar')
+implementation 'org.apache.groovy:groovy:6.0.0'
+implementation 'com.unboundid:unboundid-ldapsdk:7.0.6'
+implementation files('<path to>/directory-service-jar-0.12.0.jar')
 ```
+
+To run the tests:
+
+    ./gradlew test
 
 ## Configure
 
@@ -297,7 +304,7 @@ directoryService.save(group, [reason: 'No longer matches the dynamic rule for so
 Each record is named `<rdnAttribute>=<time>-<uuid>` and holds the target DN, the time and type of change, the change itself as LDIF (binary), the target's id, the modifier (by default, the bind DN of the changed source) and reason, and every subject: the target's DN and `ciID`, plus each value added to or removed from a subject attribute such as a group's members. So one search finds every change that affected a person, including changes to the groups they were in:
 
 ```groovy
-def since   = Date.parse('yyyy-MM-dd', '2026-12-15')
+def since   = new java.text.SimpleDateFormat('yyyy-MM-dd').parse('2026-12-15')
 def records = directoryService.changesFor('uid=12345,ou=people,dc=someu,dc=edu', since)
 records.each { record ->
     println "${record.ciChangeTime} ${record.ciChangeType} ${record.ciChangeTarget}: ${record.ciModifyReason}"

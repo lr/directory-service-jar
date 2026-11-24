@@ -2,7 +2,7 @@ package com.canonicalidentity.directoryservice
 
 import com.canonicalidentity.directoryservice.listener.InMemoryDirectoryServer
 import com.unboundid.ldap.sdk.Entry
-import groovy.util.GroovyTestCase
+import groovy.test.GroovyTestCase
 
 /**
  * See the API for {@link grails.test.mixin.services.ServiceUnitTestMixin} for usage instructions

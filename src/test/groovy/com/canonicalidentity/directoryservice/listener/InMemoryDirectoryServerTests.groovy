@@ -1,5 +1,7 @@
 package com.canonicalidentity.directoryservice.listener
 
+import groovy.test.GroovyTestCase
+
 import com.canonicalidentity.directoryservice.DirectoryService
 import com.canonicalidentity.directoryservice.DirectoryServiceEntry
 

@@ -225,6 +225,90 @@ directoryService.save(person)
 
 See the official docs and reference guide for more details about saving objects back to the directory.
 
+`save()` returns `true` on success. If the server rejects the change, it returns `false` and puts the reason in `entry.errors['save']`. An object can be edited and saved as many times as needed.
+
+### Update to Match Another Entry
+
+When syncing, you usually have the entry as it should be (built from a source system) and the entry as it is in the directory. `modifyToMatch()` updates the directory entry so that the attributes you list match, exactly as if you had set each differing attribute by hand:
+
+```groovy
+def desired = new DirectoryServiceEntry([
+    uid: '12345', sn: 'Franklin-Jackson', displayName: 'Sally Franklin-Jackson'
+], 'person', directoryService)
+
+def person = directoryService.findPersonWhere(uid: '12345')
+person.modifyToMatch(desired, ['sn', 'displayName', 'initials'])
+directoryService.save(person)
+```
+
+Attributes in the list that the desired entry lacks (`initials` above) are removed. Only listed attributes are compared, so operational attributes such as `entryUUID` are never touched. Any other unsaved changes on the entry are kept and saved with it.
+
+### Change Records
+
+Active Directory has no changelog. A source with `trackChanges: true` gets one: every successful `save()` to it also writes a change record entry describing the change. This gives you a searchable history for troubleshooting, such as "why did this person lose access to these groups on 12/15?", without running a separate changelog process.
+
+The source names the `dit` item where its records go (by its `singular` name), so the changelog is just another branch of your DIT. That `dit` item also says how records are named (`rdnAttribute`) and shaped (`objectClass`, `changeAttributes`), and how long they are kept:
+
+```groovy
+directoryservice.sources = [
+    'ad':[
+        // ...connection settings...
+        trackChanges: true,
+        changesDITItem: 'changeRecord'
+    ]
+]
+
+directoryservice.dit = [
+    'ou=changelog,dc=someu,dc=edu':[
+        singular: 'changeRecord',
+        plural: 'changeRecords',
+        rdnAttribute: 'cn',
+        source: 'directory',
+        objectClass: ['top', 'ciChangeRecord'], // optional
+        changeAttributes: [  // optional: the record's attribute names
+            target: 'ciChangeTarget',     // required
+            time: 'ciChangeTime',         // required
+            type: 'ciChangeType',         // required
+            changes: 'ciChanges',
+            subject: 'ciChangeSubject',
+            id: 'ciID',                   // copied from the changed entry
+            modifier: 'ciModifiersName',
+            reason: 'ciModifyReason'
+        ],
+        retentionDays: 395,  // optional: records older than this are purged (0 = never)
+        purgeEvery: 100,     // optional: purge after every N recorded changes
+        purgeBatch: 50,      // optional: most records deleted per purge
+        subjectAttributes: ['member', 'uniqueMember'] // optional: values recorded as subjects
+    ]
+]
+```
+
+The values shown are the defaults, which match the `ciChangeRecord` class in the Canonical Identity schema (directory-service-tf). To use your own schema, set `objectClass` and only the `changeAttributes` names that differ. Set an optional name to `''` if your schema has no such attribute, and that part of the record is left out; without a `subject` attribute, `changesFor()` matches on the target DN instead. `id` names the identifier attribute on both the changed entry and the record; add `targetId` if the changed entry calls it something else.
+
+Several sources can share one changes `dit` item, so one search finds changes made to any of them, for example both your directory and a corporate forest your sync writes to. Sources without `trackChanges` are not recorded. If `trackChanges` is set but `changesDITItem` is missing or unknown, a warning is logged and nothing is recorded. Changes to the change records themselves are never recorded.
+
+Pass the reason for a change, and who or what made it, when saving:
+
+```groovy
+directoryService.save(group, [reason: 'No longer matches the dynamic rule for some group',
+                              modifier: 'group-sync'])
+```
+
+Each record is named `<rdnAttribute>=<time>-<uuid>` and holds the target DN, the time and type of change, the change itself as LDIF (binary), the target's id, the modifier (by default, the bind DN of the changed source) and reason, and every subject: the target's DN and `ciID`, plus each value added to or removed from a subject attribute such as a group's members. So one search finds every change that affected a person, including changes to the groups they were in:
+
+```groovy
+def since   = Date.parse('yyyy-MM-dd', '2026-12-15')
+def records = directoryService.changesFor('uid=12345,ou=people,dc=someu,dc=edu', since)
+records.each { record ->
+    println "${record.ciChangeTime} ${record.ciChangeType} ${record.ciChangeTarget}: ${record.ciModifyReason}"
+    println new String(record.entry.getAttributeValueBytes('ciChanges'), 'UTF-8')
+}
+```
+
+`changesFor()` searches every changes branch in use. Since the changes branch is a `dit` item, its finders work too, e.g. `directoryService.findChangeRecordsWhere(ciChangeTarget: dn)`.
+
+Recording is best-effort: if a record cannot be written, the failure is logged and the save still succeeds. Expired records are purged a few at a time during saves (every `purgeEvery` recorded changes), or you can call `directoryService.purgeChangeRecords()` yourself.
+
 ### Add (Create)
 
 Not implemented yet.

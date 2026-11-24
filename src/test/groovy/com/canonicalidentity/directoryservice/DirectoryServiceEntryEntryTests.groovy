@@ -221,10 +221,77 @@ class DirectoryServiceEntryEntryTests extends GroovyTestCase {
 
         // Passes in the underlying Entry object
         uid0.modifyToMatch(updatedUid0.entry, attrsToCompare)
-        
+
         assertNotNull uid0.modifications
         assertEquals uid0.modifications.size(), 6 // removed initials
 
+    }
+
+    /**
+     * modifyToMatch() must update the entry itself, so that it is dirty, reads
+     * back the new values, and still matches the directory after a save (a
+     * second edit and save must work).
+     */
+    void testModifyToMatchUpdatesEntryAndSaves() {
+        def attrsToCompare = ['sn', 'displayName', 'initials']
+        def updated = new DirectoryServiceEntry([
+            uid: '0', sn: 'Smith II', displayName: 'John Smith II'
+        ], 'person', directoryService)
+
+        def uid0 = directoryService.findPersonWhere(uid: '0')
+        uid0.modifyToMatch(updated, attrsToCompare)
+
+        assertTrue uid0.isDirty()
+        assertTrue uid0.isDirty('sn')
+        assertTrue uid0.isDirty('initials') // removed
+        assertEquals 'Smith II', uid0.sn
+        assertNull uid0.initials
+
+        assertTrue directoryService.save(uid0)
+        assertFalse uid0.isDirty()
+
+        def reread = directoryService.findPersonWhere(uid: '0')
+        assertEquals 'Smith II', reread.sn
+        assertEquals 'John Smith II', reread.displayName
+        assertNull reread.initials
+
+        // A second edit computes its modifications against what was saved.
+        uid0.displayName = 'Johnny Smith II'
+        assertTrue directoryService.save(uid0)
+        assertEquals 'Johnny Smith II',
+            directoryService.findPersonWhere(uid: '0').displayName
+    }
+
+    /**
+     * Unsaved edits made before modifyToMatch() are kept and saved with it.
+     */
+    void testModifyToMatchKeepsUnsavedEdits() {
+        def updated = new DirectoryServiceEntry([uid: '0', sn: 'Smith III'],
+            'person', directoryService)
+
+        def uid0 = directoryService.findPersonWhere(uid: '0')
+        uid0.mail = 'john.smith.iii@someu.edu'
+        uid0.modifyToMatch(updated, ['sn'])
+
+        assertTrue uid0.isDirty('mail')
+        assertTrue uid0.isDirty('sn')
+        assertTrue directoryService.save(uid0)
+
+        def reread = directoryService.findPersonWhere(uid: '0')
+        assertEquals 'Smith III', reread.sn
+        assertEquals 'john.smith.iii@someu.edu', reread.mail
+    }
+
+    /**
+     * When nothing differs, modifyToMatch() makes no modifications.
+     */
+    void testModifyToMatchWithNoDifferences() {
+        def uid0 = directoryService.findPersonWhere(uid: '0')
+        def same = directoryService.findPersonWhere(uid: '0')
+        uid0.modifyToMatch(same, ['sn', 'givenName', 'cn'])
+
+        assertFalse uid0.isDirty()
+        assertTrue uid0.modifications.isEmpty()
     }
 
 }

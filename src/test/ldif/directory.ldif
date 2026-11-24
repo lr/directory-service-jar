@@ -10853,3 +10853,15 @@ member: cn=iam team,ou=groups,dc=someu,dc=edu
 owner: uid=6,ou=people,dc=someu,dc=edu
 owner: cn=iam team,ou=groups,dc=someu,dc=edu
 owner: cn=service desk,ou=groups,dc=someu,dc=edu
+
+dn: ou=changelog,dc=someu,dc=edu
+objectClass: top
+objectClass: organizationalunit
+ou: changelog
+description: Change records written by DirectoryService.save()
+
+dn: ou=altchanges,dc=someu,dc=edu
+objectClass: top
+objectClass: organizationalunit
+ou: altchanges
+description: Change records in a made-up, non-ci schema, for tests

@@ -13,7 +13,11 @@ directoryservice.sources = [
         initialConnections: 5,
         maxConnections: 50,
         bindDN: 'cn=Directory Manager',
-        bindPassword: 'password'
+        bindPassword: 'password',
+        // Optional: record every save to this source as a ciChangeRecord in
+        // the dit item named here (by its singular name).
+        trackChanges: true,
+        changesDITItem: 'changeRecord'
     ],
     ad:[
         address: 'localhost',
@@ -119,5 +123,19 @@ directoryservice.dit = [
         rdnAttribute: 'uid',
         source: 'directoryAnonymousWithPool',
         attributes: ['cn', 'sn', 'creatorsName']
+    ],
+    // Where change records go for sources with trackChanges. Everything after
+    // source is optional and shown with its default; the record's attribute
+    // names can be changed with changeAttributes (see the README).
+    'ou=changelog,dc=someu,dc=edu':[
+        singular: 'changeRecord',
+        plural: 'changeRecords',
+        rdnAttribute: 'cn',
+        source: 'directory',
+        objectClass: ['top', 'ciChangeRecord'],
+        retentionDays: 395,
+        purgeEvery: 100,
+        purgeBatch: 50,
+        subjectAttributes: ['member', 'uniqueMember']
     ]
 ]

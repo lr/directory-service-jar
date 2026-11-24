@@ -512,7 +512,7 @@ class DirectoryServiceTests extends GroovyTestCase {
      * Test get, which operates on the RDN attribute of the dit object
      * specified.
      */
-    void testGet() {
+    void testGetUsingAttr() {
        def person = directoryService.getPerson('1')
        assertNotNull person
        assertEquals person.uid, '1'
@@ -520,6 +520,18 @@ class DirectoryServiceTests extends GroovyTestCase {
        def account = directoryService.getAccount('Lavers, Matthew')
        assertNotNull account
        assertEquals account.uid, '139'
+    }
+
+    void testGetUsingDN() {
+        def person = directoryService.getPerson('uid=1,ou=people,dc=someu,dc=edu')
+        assertNotNull person
+        assertEquals person.uid, '1'
+        assertEquals person.displayName, 'Jim Williams'
+
+        def account = directoryService.getAccount('cn=Evans\\, Sally,ou=Aerospace Engineering,ou=accounts,dc=someu,dc=edu')
+        assertNotNull account
+        assertEquals account.uid, '2'
+        assertEquals account.displayName, 'Sally Evans'
     }
 
     /**
@@ -680,6 +692,55 @@ class DirectoryServiceTests extends GroovyTestCase {
     }
 
     /**
+     * Test getting attribute as objects (all).
+     */
+    void testAttrAsObjectsAll() {
+        def group = directoryService.getGroup('some group')
+        assertNotNull group
+
+        def owners = directoryService.attrAsObjects(group, 'owner')
+        assertEquals owners.size(), 3
+    }
+
+    /**
+     * Test getting attribute as objects (groups).
+     */
+    void testAttrAsObjectsGroupsOnly() {
+        def group = directoryService.getGroup('some group')
+        assertNotNull group
+
+        def owners = directoryService.attrAsObjects(group, 'owner', 'group')
+        assertEquals owners.size(), 2
+    }
+
+    /**
+     * Test getting attribute as objects (people).
+     */
+    void testAttrAsObjectsPeopleOnly() {
+        def group = directoryService.getGroup('some group')
+        assertNotNull group
+
+        def owners = directoryService.attrAsObjects(group, 'owner', 'people')
+        assertEquals owners.size(), 1
+        assertEquals owners[0].uid, '6'
+    }
+
+    /**
+     * Test getting attribute as objects (people) with limited attrs.
+     */
+    void testAttrAsObjectsPeopleOnlyLimitedAttrs() {
+        def group = directoryService.getGroup('some group')
+        assertNotNull group
+
+        def owners = directoryService.attrAsObjects(group, 'owner', 'people', ['sn', 'mail'])
+        assertEquals owners.size(), 1
+        assertNull owners[0].uid
+        assertNull owners[0].givenName
+        assertEquals owners[0].sn, 'Nguyen'
+        assertEquals owners[0].mail, 'Julie.Nguyen@someu.edu'
+    }
+
+    /**
      * Test snapshotting
      */
     void testSnapshot() {
@@ -714,6 +775,332 @@ class DirectoryServiceTests extends GroovyTestCase {
         // the connection open, so now we should have two conns returned
         assertEquals accountsFromPool.size(), 351
         assertEquals directoryService.connections().keySet().size(), 2
+    }
+
+    /**
+     * The same object can be edited and saved repeatedly: after a save, the
+     * next edit is diffed against what was saved, not against itself.
+     */
+    void testSaveTwiceInARow() {
+        def person = directoryService.getPerson('2')
+        person.sn = 'Once'
+        assertTrue directoryService.save(person)
+        person.sn = 'Twice'
+        assertTrue person.isDirty('sn')
+        assertFalse person.modifications.isEmpty()
+        assertTrue directoryService.save(person)
+        assertEquals 'Twice', directoryService.getPerson('2').sn
+    }
+
+    /**
+     * A save the server rejects returns false and records the error, rather
+     * than throwing.
+     */
+    void testFailedSaveReturnsFalse() {
+        def person = directoryService.getPerson('2')
+        person.someAttributeThatDoesNotExist = 'value'
+        assertFalse directoryService.save(person)
+        assertNotNull person.errors['save']
+    }
+
+    /**
+     * save() writes a change record holding the target, type, LDIF of the
+     * change, and the provided reason and modifier.
+     */
+    void testSaveWritesChangeRecord() {
+        def person = directoryService.getPerson('2')
+        person.sn = 'Evans-Peters'
+        assertTrue directoryService.save(person,
+            [reason: 'Name change from HR', modifier: 'hr-sync'])
+
+        def records = directoryService.changesFor(person.dn)
+        assertEquals 1, records.size()
+        def record = records[0]
+        assertEquals person.dn, record.ciChangeTarget
+        assertEquals 'modify', record.ciChangeType
+        assertEquals 'Name change from HR', record.ciModifyReason
+        assertEquals 'hr-sync', record.ciModifiersName
+        assertNotNull record.ciChangeTime
+
+        def ldif = new String(record.entry.getAttributeValueBytes('ciChanges'), 'UTF-8')
+        assertTrue ldif.contains("dn: ${person.dn}")
+        assertTrue ldif.contains('changetype: modify')
+        assertTrue ldif.contains('sn: Evans-Peters')
+    }
+
+    /**
+     * Without a modifier, the change record uses the changelog source's bind DN.
+     */
+    void testChangeRecordDefaultsModifierToBindDN() {
+        def person = directoryService.getPerson('2')
+        person.displayName = 'Sally E.'
+        assertTrue directoryService.save(person)
+
+        def record = directoryService.changesFor(person.dn)[0]
+        assertEquals 'cn=Directory Manager', record.ciModifiersName
+        assertNull record.ciModifyReason
+    }
+
+    /**
+     * Members added to or removed from a group become subjects of the change
+     * record, so a person's lost (or gained) memberships can be found by
+     * searching for that person.
+     */
+    void testGroupMembershipChangeIsFoundByMember() {
+        def memberDN = 'uid=6,ou=people,dc=someu,dc=edu'
+        def group = directoryService.getGroup('cn=some group,ou=groups,dc=someu,dc=edu')
+        def members = group.memberValues() as List
+        assertTrue members.contains(memberDN)
+
+        group.member = members - memberDN
+        assertTrue directoryService.save(group,
+            [reason: 'No longer matches the dynamic rule for some group'])
+
+        def records = directoryService.changesFor(memberDN)
+        assertEquals 1, records.size()
+        assertEquals group.dn, records[0].ciChangeTarget
+        assertEquals 'No longer matches the dynamic rule for some group',
+            records[0].ciModifyReason
+        // The group itself is a subject too.
+        assertEquals 1, directoryService.changesFor(group.dn).size()
+    }
+
+    /**
+     * changesFor() honors since and until, and returns records oldest first.
+     */
+    void testChangesForTimeRangeAndOrder() {
+        def person = directoryService.getPerson('2')
+        person.sn = 'First'
+        directoryService.save(person)
+        person.sn = 'Second'
+        directoryService.save(person)
+
+        def all = directoryService.changesFor(person.dn)
+        assertEquals 2, all.size()
+        assertTrue new String(all[0].entry.getAttributeValueBytes('ciChanges'), 'UTF-8').contains('sn: First')
+        assertTrue new String(all[1].entry.getAttributeValueBytes('ciChanges'), 'UTF-8').contains('sn: Second')
+
+        def tomorrow = new Date(System.currentTimeMillis() + 24L * 60 * 60 * 1000)
+        def yesterday = new Date(System.currentTimeMillis() - 24L * 60 * 60 * 1000)
+        assertEquals 0, directoryService.changesFor(person.dn, tomorrow).size()
+        assertEquals 2, directoryService.changesFor(person.dn, yesterday).size()
+        assertEquals 0, directoryService.changesFor(person.dn, null, yesterday).size()
+    }
+
+    /**
+     * purgeChangeRecords() deletes records older than the retention period
+     * and keeps recent ones.
+     */
+    void testPurgeChangeRecords() {
+        def person = directoryService.getPerson('2')
+        person.sn = 'Recent'
+        directoryService.save(person)
+
+        // An old record, written directly with a change time two years ago.
+        def oldTime = '20241123000000.0Z'
+        directoryService.connection('ou=changelog,dc=someu,dc=edu').add(
+            "dn: cn=${oldTime}-old,ou=changelog,dc=someu,dc=edu",
+            'objectClass: top',
+            'objectClass: ciChangeRecord',
+            "cn: ${oldTime}-old",
+            "ciChangeTarget: ${person.dn}",
+            "ciChangeTime: ${oldTime}",
+            'ciChangeType: modify',
+            "ciChangeSubject: ${person.dn}")
+        assertEquals 2, directoryService.changesFor(person.dn).size()
+
+        assertEquals 1, directoryService.purgeChangeRecords()
+        def remaining = directoryService.changesFor(person.dn)
+        assertEquals 1, remaining.size()
+        assertTrue new String(remaining[0].entry.getAttributeValueBytes('ciChanges'), 'UTF-8').contains('sn: Recent')
+    }
+
+    /**
+     * Recording is best-effort: if the change record cannot be written, the
+     * save itself still succeeds.
+     */
+    void testSaveSucceedsWhenChangeRecordFails() {
+        def ds = new DirectoryService(dsConfigFile, false)
+        // A changes dit item whose branch does not exist in the directory.
+        ds.config.directoryservice.dit['ou=missing,ou=people,dc=someu,dc=edu'] = [
+            singular: 'missingChangeRecord', plural: 'missingChangeRecords',
+            rdnAttribute: 'cn', source: 'directory'
+        ]
+        ds.config.directoryservice.sources.directory.changesDITItem = 'missingChangeRecord'
+
+        def person = ds.getPerson('2')
+        person.sn = 'Still Saved'
+        assertTrue ds.save(person)
+        assertEquals 'Still Saved', ds.getPerson('2').sn
+        assertFalse ds.recordChange('modify', person.dn, [])
+    }
+
+    /**
+     * Saves to a source without trackChanges are not recorded.
+     */
+    void testUntrackedSourceRecordsNothing() {
+        def account = directoryService.findAccountWhere(sAMAccountName: 'JSmith0')
+        account.displayName = 'Johnny Smith'
+        assertTrue directoryService.save(account)
+        assertTrue directoryService.changesFor(account.dn).isEmpty()
+    }
+
+    /**
+     * Sources can share one changes branch, so one search finds changes made
+     * to any of them. The modifier defaults to the changed source's bind DN.
+     */
+    void testTrackedSourcesShareAChangesBranch() {
+        def ds = new DirectoryService(dsConfigFile, false)
+        ds.config.directoryservice.sources.ad.trackChanges = true
+        ds.config.directoryservice.sources.ad.changesDITItem = 'changeRecord'
+
+        def account = ds.findAccountWhere(sAMAccountName: 'JSmith0')
+        account.displayName = 'Johnny Smith'
+        assertTrue ds.save(account)
+
+        def records = ds.changesFor(account.dn)
+        assertEquals 1, records.size()
+        assertEquals 'cn=AD Manager', records[0].ciModifiersName
+        // Stored in the directory source's changelog branch.
+        assertTrue records[0].dn.endsWith('ou=changelog,dc=someu,dc=edu')
+    }
+
+    /**
+     * trackChanges with a missing or unknown changesDITItem records nothing,
+     * and the save still succeeds.
+     */
+    void testTrackChangesWithoutAValidChangesDITItem() {
+        def ds = new DirectoryService(dsConfigFile, false)
+        ds.config.directoryservice.sources.ad.trackChanges = true
+
+        def account = ds.findAccountWhere(sAMAccountName: 'JSmith0')
+        account.displayName = 'No Item'
+        assertTrue ds.save(account)
+        assertTrue ds.changesFor(account.dn).isEmpty()
+
+        ds.config.directoryservice.sources.ad.changesDITItem = 'noSuchItem'
+        account.displayName = 'Unknown Item'
+        assertTrue ds.save(account)
+        assertTrue ds.changesFor(account.dn).isEmpty()
+    }
+
+    /**
+     * A DirectoryService whose directory source records changes in a made-up,
+     * non-ci schema: its own object class, RDN attribute and attribute names,
+     * and no id, modifier or reason attributes at all.
+     */
+    private DirectoryService customSchemaService(Map changeAttributes) {
+        def ds = new DirectoryService(dsConfigFile, false)
+        ds.config.directoryservice.dit['ou=altchanges,dc=someu,dc=edu'] = [
+            singular: 'altChange', plural: 'altChanges',
+            rdnAttribute: 'testRecordId', source: 'directory',
+            objectClass: ['top', 'testChangeEntry'],
+            changeAttributes: changeAttributes
+        ]
+        ds.config.directoryservice.sources.directory.changesDITItem = 'altChange'
+        return ds
+    }
+
+    /**
+     * Change recording, searching and purging assume nothing about the ci
+     * schema: they work with whatever the changes dit item configures.
+     */
+    void testChangeRecordsWithACustomSchema() {
+        def ds = customSchemaService([
+            target: 'testTarget', time: 'testWhen', type: 'testKind',
+            changes: 'testDiff', subject: 'testAffected',
+            id: '', modifier: '', reason: ''
+        ])
+        def memberDN = 'uid=6,ou=people,dc=someu,dc=edu'
+        def group = ds.getGroup('cn=some group,ou=groups,dc=someu,dc=edu')
+        group.member = (group.memberValues() as List) - memberDN
+        assertTrue ds.save(group, [reason: 'Not recorded: no reason attribute'])
+
+        def records = ds.changesFor(memberDN)
+        assertEquals 1, records.size()
+        def record = records[0]
+        assertTrue record.dn.startsWith('testRecordId=')
+        assertTrue record.dn.endsWith(',ou=altchanges,dc=someu,dc=edu')
+        assertEquals group.dn, record.testTarget
+        assertEquals 'modify', record.testKind
+        assertNotNull record.testWhen
+        assertTrue new String(record.entry.getAttributeValueBytes('testDiff'), 'UTF-8')
+            .contains('changetype: modify')
+        assertEquals(['testChangeEntry', 'top'] as Set,
+            record.entry.getAttributeValues('objectClass') as Set)
+        record.entry.attributes.each { assertFalse it.name.startsWith('ci') }
+
+        // Purging uses the custom time attribute and object class too.
+        def oldTime = '20241123000000.0Z'
+        ds.connection('ou=altchanges,dc=someu,dc=edu').add(
+            "dn: testRecordId=${oldTime}-old,ou=altchanges,dc=someu,dc=edu",
+            'objectClass: top',
+            'objectClass: testChangeEntry',
+            "testRecordId: ${oldTime}-old",
+            "testTarget: ${group.dn}",
+            "testWhen: ${oldTime}",
+            'testKind: modify',
+            "testAffected: ${group.dn}")
+        assertEquals 2, ds.changesFor(group.dn).size()
+        assertEquals 1, ds.purgeChangeRecords()
+        assertEquals 1, ds.changesFor(group.dn).size()
+    }
+
+    /**
+     * Without a subject attribute, changesFor() matches on the target DN.
+     */
+    void testChangesForUsesTheTargetWithoutASubjectAttribute() {
+        def ds = customSchemaService([
+            target: 'testTarget', time: 'testWhen', type: 'testKind',
+            changes: '', subject: '', id: '', modifier: '', reason: ''
+        ])
+        def person = ds.getPerson('2')
+        person.sn = 'No Subjects'
+        assertTrue ds.save(person)
+
+        def records = ds.changesFor(person.dn)
+        assertEquals 1, records.size()
+        assertNull records[0].entry.getAttribute('testAffected')
+        assertNull records[0].entry.getAttribute('testDiff')
+    }
+
+    /**
+     * A changes dit item without names for the required target, time and
+     * type attributes records nothing, and the save still succeeds.
+     */
+    void testChangeAttributesMissingARequiredName() {
+        def ds = customSchemaService([
+            target: 'testTarget', time: '', type: 'testKind'
+        ])
+        def person = ds.getPerson('2')
+        person.sn = 'Not Recorded'
+        assertTrue ds.save(person)
+        assertTrue ds.changesFor(person.dn).isEmpty()
+    }
+
+    /**
+     * Changes to change records themselves are not recorded.
+     */
+    void testChangesToChangeRecordsAreNotRecorded() {
+        def person = directoryService.getPerson('2')
+        person.sn = 'Recorded'
+        directoryService.save(person)
+
+        def record = directoryService.changesFor(person.dn)[0]
+        record.ciModifyReason = 'Annotated after the fact'
+        assertTrue directoryService.save(record)
+        assertTrue directoryService.changesFor(record.dn).isEmpty()
+        assertEquals 1, directoryService.changesFor(person.dn).size()
+    }
+
+    /**
+     * With no changelog configured, nothing is recorded.
+     */
+    void testNoChangelogConfigured() {
+        def ds = new DirectoryService(inMemServerConfigFile, false)
+        assertFalse ds.recordChange('modify', 'uid=2,ou=people,dc=someu,dc=edu', [])
+        assertTrue ds.changesFor('uid=2,ou=people,dc=someu,dc=edu').isEmpty()
+        assertEquals 0, ds.purgeChangeRecords()
     }
 
 }

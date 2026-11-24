@@ -246,7 +246,9 @@ class DirectoryServiceEntry implements Serializable {
         entry.setDN(dn)
         entry.setAttribute('objectClass', objectClass)
 
-        this.searchResultEntry = new ReadOnlyEntry(entry)
+        // ReadOnlyEntry wraps (shares) the entry it is given, so give it a copy
+        // that the caller's Entry object cannot change.
+        this.searchResultEntry = new ReadOnlyEntry(entry.duplicate())
         this.entry             = entry.duplicate()
         this.baseDN            = parentDN
     }
@@ -278,7 +280,7 @@ class DirectoryServiceEntry implements Serializable {
             throw new Exception(msg)
         }
 
-        this.searchResultEntry = new ReadOnlyEntry(entry)
+        this.searchResultEntry = new ReadOnlyEntry(entry.duplicate())
         this.entry             = entry.duplicate()
         this.baseDN            = parentDN
     }
@@ -411,8 +413,12 @@ class DirectoryServiceEntry implements Serializable {
         mods = [:]
         errors = [:]
         modifications = []
+        // ReadOnlyEntry(Entry) wraps the entry it is given, sharing its
+        // attributes, so it must wrap a copy: otherwise every later change to
+        // entry would also change searchResultEntry, the diff would come out
+        // empty, and the next save would silently do nothing.
         searchResultEntry =
-            new ReadOnlyEntry(entry)
+            new ReadOnlyEntry(entry.duplicate())
     }
 
     /**
@@ -430,7 +436,9 @@ class DirectoryServiceEntry implements Serializable {
     def isDirty(attribute=null) {
         if (mods) {
             if (attribute) {
-                return mods[attribute] ? true : false
+                // containsKey, so that removing an attribute (a null or empty
+                // value) still counts as a modification of it.
+                return mods.containsKey(attribute)
             }
             return true
         }
@@ -468,16 +476,22 @@ class DirectoryServiceEntry implements Serializable {
     }
 
     /**
-     * Takes the passed in {@code entryToMatch} and diffs it with the underlying
-     * {@code entry} object, and sets the {@code modifications} as the output
-     * of Entry.diff(). If {@code entryToMatch} is an Entry object, it just uses
-     * that, if it is a DirectoryServiceEntry object, then it grabs the
-     * underlying {@code entry} object. You must also pass in
+     * Updates this entry so that the attributes in {@code attrsToCompare}
+     * match those of {@code entryToMatch}, exactly as if each differing
+     * attribute had been set by hand. If {@code entryToMatch} is an Entry
+     * object, it just uses that, if it is a DirectoryServiceEntry object, then
+     * it grabs the underlying {@code entry} object. You must also pass in
      * {@code attrsToCompare} so that read only attributes like entryUUID,
      * creatorsName, etc., are not being compared. Also, you many only want to
      * compare a few attributes, and probably never want to compare the
      * objectClass attribute, so this list makes the whole operation more
      * predictable.
+     *
+     * Each attribute that differs is copied into {@code entry} (or removed
+     * from it when {@code entryToMatch} lacks it) and marked dirty, and the
+     * {@code modifications} are then recalculated against what was read from
+     * the directory. So any other unsaved changes are kept, {@code isDirty()}
+     * reflects the update, and after a save the object matches the directory.
      *
      * @param entryToMatch      The Entry or DirectoryServiceEntry object to
      *                          compare.
@@ -491,12 +505,30 @@ class DirectoryServiceEntry implements Serializable {
     public void modifyToMatch(entryToMatch, attrsToCompare, reversable=true,
         byteForByte=true) {
 
-        if (entryToMatch.getClass() == 
-            com.canonicalidentity.directoryservice.DirectoryServiceEntry) {
+        if (entryToMatch instanceof DirectoryServiceEntry) {
             entryToMatch = entryToMatch.entry
         }
-        modifications = Entry.diff(entry, entryToMatch, true, reversable,
+
+        // Which of the attributes differ between this entry, including any
+        // unsaved changes, and the one to match?
+        def differing = Entry.diff(entry, (Entry)entryToMatch, true, true,
             byteForByte, attrsToCompare as String[])
+            .collect { it.attributeName }
+            .unique { it.toLowerCase() }
+
+        differing.each { String name ->
+            def attribute = entryToMatch.getAttribute(name)
+            if (attribute) {
+                entry.setAttribute(attribute)
+                mods[name] = attribute.getValues() as List
+            }
+            else {
+                entry.removeAttribute(name)
+                mods[name] = null
+            }
+        }
+
+        updateModifications(reversable, byteForByte)
     }
 
 }

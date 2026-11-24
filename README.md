@@ -341,4 +341,4 @@ See the [UnboundID LDAP SDK Java docs](https://www.unboundid.com/products/ldap-s
 
 ## License
 
-DirectoryService is licensed under the terms of the [BSD 3-Clause License](http://www.apache.org/licenses/LICENSE-2.0). The UnboundID LDAP SDK is licensed under the terms of three different licenses. Please see the [UnboundID LDAP SDK for Java docs page](https://www.unboundid.com/products/ldap-sdk/docs/javadoc/index.html) for more information.
+DirectoryService is licensed under the terms of the [BSD 3-Clause License](LICENSE). The UnboundID LDAP SDK is licensed under the terms of three different licenses. Please see the [UnboundID LDAP SDK for Java docs page](https://www.unboundid.com/products/ldap-sdk/docs/javadoc/index.html) for more information.

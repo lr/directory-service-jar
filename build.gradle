@@ -1,23 +1,35 @@
-apply plugin: 'groovy'
+plugins {
+    id 'groovy'
+    id 'java-library'
+}
 
-version = '0.11.0'
+group = 'com.canonicalidentity'
+version = '0.12.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
 
 //Get dependencies from Maven central repository
 repositories {
     mavenCentral()
 }
 
-//Project dependencies
+//Project dependencies. Groovy and the UnboundID LDAP SDK are part of this
+//library's API (DirectoryServiceEntry wraps UnboundID entries), so they are
+//exposed to projects that depend on it.
 dependencies {
-    implementation 'org.codehaus.groovy:groovy-all:2.4.14'
-    implementation 'com.unboundid:unboundid-ldapsdk:6.0.11'
-    testImplementation(
-        'org.spockframework:spock-core:1.1-groovy-2.4',
-        'com.unboundid:unboundid-ldapsdk:6.0.11'
-    )
+    api 'org.apache.groovy:groovy:6.0.0'
+    api 'com.unboundid:unboundid-ldapsdk:7.0.6'
+
+    // GroovyTestCase (JUnit 4)
+    testImplementation 'org.apache.groovy:groovy-test:6.0.0'
 }
 
 test {
+    useJUnit()
     minHeapSize = "512m"
     maxHeapSize = "2g"
 }

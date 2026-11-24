@@ -1,6 +1,6 @@
 package com.canonicalidentity.directoryservice
 
-import groovy.util.GroovyTestCase
+import groovy.test.GroovyTestCase
 
 import com.canonicalidentity.directoryservice.listener.InMemoryDirectoryServer
 import com.unboundid.ldap.sdk.Filter as LDAPFilter
